@@ -14,7 +14,7 @@ gem "jwt"
 gem "redis"
 
 gem "sidekiq", "< 8"
-gem "connection_pool", "~> 2.4.1"
+gem "connection_pool", "~> 3.0.2"
 
 group :development, :test do
   gem "debug", platforms: %i[mri mingw x64_mingw]

@@ -84,7 +84,7 @@ GEM
       racc
     builder (3.3.0)
     concurrent-ruby (1.3.6)
-    connection_pool (2.4.1)
+    connection_pool (3.0.2)
     crass (1.0.6)
     date (3.5.1)
     debug (1.11.1)
@@ -270,12 +270,12 @@ GEM
       rubocop-rails (>= 2.30)
     ruby-progressbar (1.13.0)
     securerandom (0.4.1)
-    sidekiq (7.3.10)
+    sidekiq (7.3.9)
       base64
-      connection_pool (>= 2.3.0, < 3)
+      connection_pool (>= 2.3.0)
       logger
-      rack (>= 2.2.4, < 3.3)
-      redis-client (>= 0.23.0, < 1)
+      rack (>= 2.2.4)
+      redis-client (>= 0.22.2)
     stringio (3.2.0)
     thor (1.5.0)
     timeout (0.6.0)
@@ -314,7 +314,7 @@ DEPENDENCIES
   bcrypt
   bootsnap
   brakeman
-  connection_pool (~> 2.4.1)
+  connection_pool (~> 3.0.2)
   debug
   faker
   jwt
