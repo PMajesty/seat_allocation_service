@@ -1,0 +1,44 @@
+<div class="hero-section">
+  <h1 class="hero-title">World Class Performances</h1>
+  <p class="hero-subtitle">Experience the art of sound in the heart of the city.</p>
+</div>
+
+<div class="events-section">
+  <h2 class="section-title">Upcoming Events</h2>
+
+  <% if @events.any? %>
+    <div class="events-grid">
+      <% @events.each do |event| %>
+        <div class="event-card">
+          <div class="event-thumbnail" style="--thumbnail-color: <%= event.thumbnail_color %>">
+            <span class="thumbnail-text"><%= event.title %></span>
+          </div>
+
+          <div class="event-content">
+            <div class="event-header">
+              <h3 class="event-title"><%= event.title %></h3>
+              <span class="event-price">
+                <%= number_to_currency(event.base_price_cents / 100.0, unit: '$') %>
+              </span>
+            </div>
+
+            <div class="showtimes-list">
+              <h4 class="showtimes-label">Select a Showtime:</h4>
+              <% if event.scheduled_showtimes.any? %>
+                <div class="showtime-buttons">
+                  <% event.scheduled_showtimes.each do |showtime| %>
+                    <%= link_to showtime.starts_at.strftime("%b %d • %l:%M %p"), showtime_path(showtime), class: "btn-showtime" %>
+                  <% end %>
+                </div>
+              <% else %>
+                <p class="no-showtimes">Sold Out</p>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <p class="events-empty-state">No events scheduled at this time.</p>
+  <% end %>
+</div>

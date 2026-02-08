@@ -1,0 +1,108 @@
+@use "variables" as *;
+
+.site-header {
+  border-bottom: 1px solid $color-gray-medium;
+  padding: 25px 0;
+  margin-bottom: 40px;
+
+  .header-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .logo {
+    font-size: 24px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  .hamburger-btn {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+
+    span {
+      display: block;
+      width: 25px;
+      height: 3px;
+      background-color: $color-text;
+      margin-bottom: 5px;
+      transition: 0.3s;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+
+  .main-nav {
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      gap: 30px;
+    }
+
+    a {
+      font-size: 13px;
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    .btn-logout {
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 1px;
+      color: $color-text;
+
+      &:hover {
+        color: $color-primary;
+      }
+    }
+  }
+}
+
+@media (max-width: $breakpoint-mobile) {
+  .site-header {
+    .header-inner {
+      flex-wrap: wrap;
+      gap: 0;
+    }
+
+    .hamburger-btn {
+      display: block;
+    }
+
+    .main-nav {
+      width: 100%;
+      display: none;
+      margin-top: 20px;
+      border-top: 1px solid $color-gray-light;
+      padding-top: 20px;
+
+      &.open {
+        display: block;
+      }
+
+      ul {
+        flex-direction: column;
+        gap: 15px;
+        align-items: center;
+        text-align: center;
+      }
+    }
+  }
+}

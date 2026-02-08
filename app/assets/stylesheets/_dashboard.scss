@@ -1,0 +1,168 @@
+@use "variables" as *;
+
+.dashboard-section {
+  padding: 40px 0;
+
+  .dashboard-title {
+    font-weight: 300;
+    font-size: 36px;
+    margin-bottom: 30px;
+    border-bottom: 1px solid $color-gray-medium;
+    padding-bottom: 20px;
+  }
+
+  .btn-showtime {
+    border-radius: 5px;
+    padding: 5px;
+  }
+
+  .user-card {
+    background: $color-gray-light;
+    padding: 30px;
+    border-left: 4px solid $color-primary;
+
+    .user-info-row {
+      margin-bottom: 10px;
+      font-size: 16px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      strong {
+        font-weight: 600;
+        margin-right: 10px;
+        text-transform: uppercase;
+        font-size: 12px;
+        letter-spacing: 1px;
+      }
+    }
+  }
+
+  .simulation-container {
+    margin-top: 40px;
+    border-top: 1px solid $color-gray-medium;
+    padding-top: 20px;
+  }
+
+  .simulation-title {
+    font-size: 24px;
+    font-weight: 300;
+    margin-bottom: 20px;
+  }
+
+  .simulation-controls {
+    background: #f9f9f9;
+    padding: 20px;
+    border: 1px solid $color-gray-medium;
+  }
+
+  .simulation-status {
+    margin-bottom: 15px;
+  }
+
+  .simulation-buttons {
+    display: flex;
+    gap: 10px;
+  }
+
+  .btn-sim {
+    border: none;
+    cursor: pointer;
+    color: #fff;
+
+    &.btn-sim-off { background: #7f8c8d; }
+    &.btn-sim-real { background: #27ae60; }
+    &.btn-sim-high { background: #e67e22; }
+    &.btn-sim-bot { background: #c0392b; }
+  }
+
+  .orders-container {
+    margin-top: 40px;
+  }
+
+  .orders-grid {
+    display: grid;
+    gap: 20px;
+  }
+
+  .order-card {
+    border: 1px solid $color-gray-medium;
+    border-radius: 8px;
+    padding: 20px;
+    background: #fff;
+  }
+
+  .order-header {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid $color-gray-light;
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+  }
+
+  .order-title {
+    margin: 0 0 5px 0;
+    font-size: 18px;
+  }
+
+  .order-meta {
+    color: #666;
+    font-size: 14px;
+  }
+
+  .order-total-section {
+    text-align: right;
+  }
+
+  .order-amount {
+    font-weight: 700;
+    font-size: 18px;
+  }
+
+  .order-status {
+    color: $color-success;
+    font-size: 12px;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .tickets-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .ticket-item {
+    background: $color-gray-light;
+    padding: 10px 15px;
+    border-radius: 4px;
+    font-size: 14px;
+    border-left: 3px solid $color-primary;
+  }
+
+  .ticket-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: $color-gray-dark;
+    margin-bottom: 2px;
+  }
+
+  .ticket-seat {
+    font-weight: 600;
+  }
+
+  .ticket-code {
+    font-family: monospace;
+    margin-top: 5px;
+    background: #fff;
+    padding: 2px 5px;
+    border: 1px solid #ddd;
+    border-radius: 2px;
+  }
+
+  .no-orders {
+    color: #666;
+    font-style: italic;
+  }
+}

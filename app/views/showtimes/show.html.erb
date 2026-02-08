@@ -1,0 +1,52 @@
+<div class="container" id="seat-selection-app" data-showtime-id="<%= @showtime.id %>" data-user-id="<%= current_user&.id %>">
+  <div id="global-notifications" class="global-notifications"></div>
+
+  <div class="showtime-intro">
+    <div class="event-thumbnail" style="--thumbnail-color: <%= @event.thumbnail_color %>">
+      <span class="thumbnail-text"><%= @event.title %></span>
+    </div>
+
+    <div class="event-info">
+      <h1><%= @event.title %></h1>
+      <p class="subtitle">
+        <%= @venue.name %> • <%= @showtime.starts_at.strftime("%B %d, %Y at %l:%M %p") %>
+      </p>
+    </div>
+  </div>
+
+  <div class="seat-selection-container">
+    <div class="stage-wrapper">
+      <div class="stage-indicator">Stage</div>
+
+      <div class="stage-area">
+        <div id="seat-grid" class="seat-grid"
+             style="--grid-cols: <%= @venue.grid_cols %>;">
+          <div class="loading-seats">Loading seats...</div>
+        </div>
+      </div>
+
+      <div class="scroll-hint-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L15 5H9L12 2ZM2 12L5 9V15L2 12ZM22 12L19 15V9L22 12ZM12 22L9 19H15L12 22Z" />
+          <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" />
+        </svg>
+      </div>
+    </div>
+
+    <div class="selection-summary">
+      <h3>Your Selection</h3>
+      <div id="selected-seats-list">
+        <p class="empty-selection">No seats selected</p>
+      </div>
+
+      <div class="total-row">
+        <span>Total</span>
+        <span id="total-price">$0.00</span>
+      </div>
+
+      <button id="btn-checkout" class="btn-checkout" disabled>Buy</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/javascripts/seat_controller.js"></script>

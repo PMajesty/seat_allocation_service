@@ -1,0 +1,24 @@
+@use "sass:color";
+@use "variables" as *;
+
+.flash-container {
+  margin-bottom: 30px;
+}
+
+.flash-message {
+  padding: 15px 20px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  border-left: 4px solid transparent;
+  background-color: $color-gray-light;
+
+  &.notice {
+    border-color: $color-success;
+    color: color.adjust($color-success, $lightness: -10%);
+  }
+
+  &.alert {
+    border-color: $color-primary;
+    color: $color-primary;
+  }
+}

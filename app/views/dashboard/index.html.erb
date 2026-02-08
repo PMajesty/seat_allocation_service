@@ -1,0 +1,70 @@
+<div class="dashboard-section">
+  <h1 class="dashboard-title">My Account</h1>
+
+  <div class="user-card">
+    <div class="user-info-row">
+      <strong>Email:</strong> <%= current_user.email %>
+    </div>
+    <% if current_user.admin? %>
+      <div class="user-info-row">
+        <strong>Role:</strong> <%= current_user.role.humanize %>
+      </div>
+    <% end %>
+  </div>
+
+  <% if (Rails.env.development? || Rails.env.test?) && current_user.admin? %>
+    <div class="simulation-container">
+      <h2 class="simulation-title">Load Simulation Breaker</h2>
+
+      <div class="simulation-controls">
+        <p class="simulation-status">Current Status: <strong><%= @simulation_mode.upcase %></strong></p>
+
+        <div class="simulation-buttons">
+          <%= button_to "Off", dashboard_simulation_path(mode: "off"), method: :post, class: "btn-showtime btn-sim btn-sim-off" %>
+          <%= button_to "Real Load", dashboard_simulation_path(mode: "real"), method: :post, class: "btn-showtime btn-sim btn-sim-real" %>
+          <%= button_to "High Load", dashboard_simulation_path(mode: "high"), method: :post, class: "btn-showtime btn-sim btn-sim-high" %>
+          <%= button_to "Bot Attack", dashboard_simulation_path(mode: "bot"), method: :post, class: "btn-showtime btn-sim btn-sim-bot" %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <div class="orders-container">
+    <h2 class="dashboard-title">My Tickets</h2>
+
+    <% if @orders.any? %>
+      <div class="orders-grid">
+        <% @orders.each do |order| %>
+          <div class="order-card">
+            <div class="order-header">
+              <div>
+                <h3 class="order-title"><%= order.showtime.event.title %></h3>
+                <div class="order-meta">
+                  <%= order.showtime.venue.name %> • <%= order.showtime.starts_at.strftime("%B %d, %Y at %l:%M %p") %>
+                </div>
+              </div>
+              <div class="order-total-section">
+                <div class="order-amount"><%= number_to_currency(order.total_amount_cents / 100.0) %></div>
+                <div class="order-status">Paid</div>
+              </div>
+            </div>
+
+            <div class="tickets-list">
+              <% order.tickets.each do |ticket| %>
+                <div class="ticket-item">
+                  <div class="ticket-label">Seat</div>
+                  <div class="ticket-seat">Row <%= ticket.showtime_seat.seat.grid_row %>, Seat <%= ticket.showtime_seat.seat.grid_col %></div>
+                  <div class="ticket-code">
+                    <%= ticket.code %>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    <% else %>
+      <p class="no-orders">You haven't purchased any tickets yet.</p>
+    <% end %>
+  </div>
+</div>
