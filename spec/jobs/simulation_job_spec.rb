@@ -15,6 +15,7 @@ RSpec.describe SimulationJob, type: :job, redis: true do
 
     allow_any_instance_of(SimulationJob).to receive(:sleep)
     allow_any_instance_of(SimulationJob).to receive(:cleanup_users)
+    allow_any_instance_of(SimulationJob).to receive(:filter_active_showtimes).and_return([showtime.id])
   end
 
   it "creates a simulation user" do

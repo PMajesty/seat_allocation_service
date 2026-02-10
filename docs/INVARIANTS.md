@@ -6,7 +6,10 @@
 These are the hard guarantees I built into the design.
 
 ## 1. No Overselling
-It is impossible for two users to buy the same seat. The `CheckoutService` opens a transaction and locks the seat rows with `SELECT ... FOR UPDATE NOWAIT`. Inside that lock, I check if the status is still available. If not, the transaction rolls back. The `NOWAIT` modifier prevents connection starvation by failing immediately if the row is already locked by another transaction. The database is the final gatekeeper.
+It is impossible for two users to buy the same seat.
+*   **Initiation**: `CheckoutStarter` locks the seat rows (`SELECT ... FOR UPDATE NOWAIT`) and transitions them to `processing`.
+*   **Finalization**: `CheckoutCallbackHandler` locks the rows again and verifies they are still `processing` before marking them `sold`.
+The database is the final gatekeeper.
 
 ## 2. Single Holder Exclusivity
 Only one user can hold a specific seat at a time. I enforce this with a Redis Lua script `atomic_hold.lua`. Since Lua executes atomically, two requests cannot race to check the key existence. First one wins, second one fails.
@@ -15,7 +18,8 @@ Only one user can hold a specific seat at a time. I enforce this with a Redis Lu
 A user cannot exceed the maximum hold count, which defaults to 3. The Lua script checks the size of the user's hold set before allowing a new one.
 
 ## 4. Status Consistency
-A seat cannot be marked `sold` without an `order_id`. I enforce this at the database level with a Check Constraint. You either have both a sold status and an order ID, or neither.
+A seat cannot be marked `sold` without an `order_id`. I enforce this at the database level with a Check Constraint.
+*   **Processing**: A seat *can* be marked `processing` without an order ID. This serves as a hard database-level reservation while the payment gateway is contacted.
 
 ## 5. VIP Inventory Protection
 New or untrusted users cannot deplete the entire inventory.
@@ -32,7 +36,10 @@ New or untrusted users cannot deplete the entire inventory.
 Жесткие гарантии, которые я заложил в архитектуру.
 
 ## 1. Никакого овербукинга
-Два пользователя не могут купить одно место. `CheckoutService` открывает транзакцию и блокирует строки через `SELECT ... FOR UPDATE NOWAIT`. Внутри блокировки я проверяю статус. Если место занято - откат. `NOWAIT` предотвращает исчерпание пула соединений: если строка заблокирована другой транзакцией, ошибка возвращается мгновенно. База данных - последняя инстанция.
+Два пользователя не могут купить одно место.
+*   **Инициация**: `CheckoutStarter` блокирует строки (`SELECT ... FOR UPDATE NOWAIT`) и переводит их в статус `processing`.
+*   **Финализация**: `CheckoutCallbackHandler` снова блокирует строки и проверяет, что они всё еще `processing`, прежде чем пометить их как `sold`.
+База данных - последняя инстанция.
 
 ## 2. Эксклюзивность холда
 Место может держать только один человек. Это контролирует Lua-скрипт `atomic_hold.lua` в Redis. Скрипт выполняется атомарно, поэтому состояние гонки исключено: кто первый встал, того и место.
@@ -41,7 +48,8 @@ New or untrusted users cannot deplete the entire inventory.
 Пользователь не может набрать больше мест, чем разрешено конфигом (по умолчанию 3). Скрипт проверяет текущее количество холдов пользователя перед добавлением нового.
 
 ## 4. Согласованность данных
-Место не может получить статус `sold` без привязки к заказу. Это гарантирует Check Constraint в базе данных. Либо у места есть и статус "продано", и ID заказа, либо нет ни того, ни другого.
+Место не может получить статус `sold` без привязки к заказу. Это гарантирует Check Constraint в базе данных.
+*   **Processing**: Место *может* иметь статус `processing` без ID заказа. Это служит жесткой резервацией на уровне БД на время обращения к платежному шлюзу.
 
 ## 5. Защита VIP-инвентаря
 Новые или недоверенные пользователи не могут выкупить зал подчистую.
