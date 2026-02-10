@@ -1,6 +1,6 @@
 require 'rails_helper'
 
-RSpec.describe CleanupExpiredHoldsJob, type: :job, redis: true do
+RSpec.describe CleanupExpiredHoldsWorker, redis: true do
   include ActiveSupport::Testing::TimeHelpers
 
   let(:venue) { Venue.create!(name: "Test Venue", grid_rows: 5, grid_cols: 5) }
@@ -39,7 +39,7 @@ RSpec.describe CleanupExpiredHoldsJob, type: :job, redis: true do
     end
 
     travel_to Time.at(now) do
-      described_class.perform_now(showtime_id)
+      described_class.new.perform(showtime_id)
     end
 
     REDIS_POOL.with do |conn|

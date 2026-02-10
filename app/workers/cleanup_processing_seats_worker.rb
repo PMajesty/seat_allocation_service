@@ -1,5 +1,6 @@
-class CleanupProcessingSeatsJob < ApplicationJob
-  queue_as :default
+class CleanupProcessingSeatsWorker < ApplicationWorker
+  from_queue "cleanup_processing_seats", env: nil
+
   include ShowtimeBroadcaster
 
   PROCESSING_TIMEOUT = 10.minutes

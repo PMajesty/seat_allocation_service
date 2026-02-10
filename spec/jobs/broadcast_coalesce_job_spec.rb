@@ -9,6 +9,7 @@ RSpec.describe BroadcastCoalesceJob, type: :job, redis: true do
   let(:channel) { "showtime_#{showtime_id}" }
 
   before do
+    ActiveJob::Base.queue_adapter = :test
     allow(ActionCable.server).to receive(:broadcast)
   end
 

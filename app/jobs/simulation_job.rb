@@ -1,5 +1,7 @@
 class SimulationJob < ApplicationJob
+  self.queue_adapter = :async unless Rails.env.test?
   queue_as :default
+
   include ShowtimeBroadcaster
 
   BATCH_SIZE = 100

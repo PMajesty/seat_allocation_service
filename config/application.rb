@@ -21,5 +21,6 @@ module SeatAllocationService
     config.autoload_lib(ignore: %w[assets tasks])
     config.api_only = false
     config.middleware.use Rack::Attack
+    config.active_job.queue_adapter = :sneakers
   end
 end

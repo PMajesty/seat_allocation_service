@@ -20,7 +20,7 @@ RSpec.describe CheckoutStarter, redis: true do
     allow(hold_service).to receive(:release!)
     allow(hold_service).to receive(:hold!).and_return({ success: true })
 
-    allow(PaymentSimulationJob).to receive(:perform_later)
+    allow(MessagePublisher).to receive(:publish).and_return(true)
   end
 
   describe "#call" do
@@ -49,11 +49,11 @@ RSpec.describe CheckoutStarter, redis: true do
     end
 
     context "successful initiation" do
-      it "holds seats, marks them processing, stores context, and enqueues job" do
+      it "holds seats, marks them processing, stores context, and publishes message" do
         seat_ids = [seat1.id, seat2.id]
 
         expect(hold_service).to receive(:hold!).with(seat_ids, bypass_limit: true, refresh: true)
-        expect(PaymentSimulationJob).to receive(:perform_later).with(kind_of(String), user.id, showtime.id)
+        expect(MessagePublisher).to receive(:publish).with("payment_simulation", [kind_of(String), user.id, showtime.id])
 
         result = subject.call(seat_ids)
 
@@ -70,6 +70,38 @@ RSpec.describe CheckoutStarter, redis: true do
       end
     end
 
+    context "when RabbitMQ publish fails" do
+      it "reverts seats, clears payment context, releases holds, and returns an initiation failure" do
+        allow(SecureRandom).to receive(:uuid).and_return("ref-1")
+        allow(MessagePublisher).to receive(:publish).and_return(false)
+
+        result = subject.call([seat1.id, seat2.id])
+
+        expect(result[:success]).to be false
+        expect(result[:code]).to eq("BACKGROUND_JOBS_UNAVAILABLE")
+
+        expect(ss1.reload.status).to eq("available")
+        expect(ss2.reload.status).to eq("available")
+
+        ctx_json = REDIS_POOL.with { |c| c.get("payment_ctx:ref-1") }
+        expect(ctx_json).to be_nil
+
+        expect(hold_service).to have_received(:release!).with([seat1.id, seat2.id])
+      end
+
+      it "clears idempotency processing marker if it was set" do
+        allow(SecureRandom).to receive(:uuid).and_return("ref-2")
+        allow(MessagePublisher).to receive(:publish).and_return(false)
+
+        key = "idem_key_rmq_down"
+        result = subject.call([seat1.id], idempotency_key: key)
+
+        expect(result[:success]).to be false
+        status = REDIS_POOL.with { |c| c.get("idempotency:#{key}") }
+        expect(status).to be_nil
+      end
+    end
+
     context "when hold acquisition fails" do
       it "fails if the refresh hold attempt fails" do
         allow(hold_service).to receive(:hold!).with(
@@ -82,7 +114,7 @@ RSpec.describe CheckoutStarter, redis: true do
 
         expect(result[:success]).to be false
         expect(result[:message]).to include("Could not secure all selected seats")
-        expect(PaymentSimulationJob).not_to have_received(:perform_later)
+        expect(MessagePublisher).not_to have_received(:publish).with("payment_simulation", any_args)
         expect(ss1.reload.status).to eq("available")
       end
     end
@@ -100,7 +132,7 @@ RSpec.describe CheckoutStarter, redis: true do
         expect(result[:status]).to eq(:completed)
         expect(result[:order_id]).to eq(order.id)
 
-        expect(PaymentSimulationJob).not_to have_received(:perform_later)
+        expect(MessagePublisher).not_to have_received(:publish).with("payment_simulation", any_args)
       end
 
       it "returns processing status if payment is currently processing" do
@@ -112,7 +144,7 @@ RSpec.describe CheckoutStarter, redis: true do
         expect(result[:status]).to eq(:processing)
         expect(result[:message]).to eq("Payment is already processing.")
 
-        expect(PaymentSimulationJob).not_to have_received(:perform_later)
+        expect(MessagePublisher).not_to have_received(:publish).with("payment_simulation", any_args)
       end
 
       it "marks idempotency key as processing for new requests" do

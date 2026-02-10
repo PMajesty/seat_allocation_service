@@ -1,5 +1,5 @@
-class CleanupExpiredHoldsJob < ApplicationJob
-  queue_as :default
+class CleanupExpiredHoldsWorker < ApplicationWorker
+  from_queue "cleanup_expired_holds", env: nil
 
   def perform(showtime_id = nil)
     if showtime_id

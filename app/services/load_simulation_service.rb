@@ -31,6 +31,6 @@ class LoadSimulationService
   end
 
   def self.cleanup_simulation
-    CleanupSimulationJob.perform_later
+    MessagePublisher.publish("cleanup_simulation", [])
   end
 end

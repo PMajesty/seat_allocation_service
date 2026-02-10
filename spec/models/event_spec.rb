@@ -1,33 +1,46 @@
 require 'rails_helper'
 
 RSpec.describe Event, type: :model do
-  include ActiveJob::TestHelper
-
   describe "indexing callbacks" do
-    let(:event) { Event.create!(title: "Async Test", active: true) }
-
-    it "enqueues an index job when an event is created" do
-      expect {
-        Event.create!(title: "New Event", active: true)
-      }.to have_enqueued_job(SearchIndexerJob).with('index', 'Event', anything)
+    before do
+      allow(MessagePublisher).to receive(:publish)
     end
 
-    it "enqueues an index job when an event is updated" do
-      event
-      clear_enqueued_jobs
+    it "publishes an index message when an event is created" do
+      event = Event.create!(title: "New Event", active: true)
 
-      expect {
-        event.update!(title: "Updated Title")
-      }.to have_enqueued_job(SearchIndexerJob).with('index', 'Event', event.id)
+      expect(MessagePublisher).to have_received(:publish).with(
+        "search_indexer",
+        ["index", "Event", event.id]
+      )
     end
 
-    it "enqueues a delete job when an event is destroyed" do
-      event
-      clear_enqueued_jobs
+    it "publishes an index message when an event is updated" do
+      event = Event.create!(title: "Async Test", active: true)
+      RSpec::Mocks.space.proxy_for(MessagePublisher).reset
 
-      expect {
-        event.destroy!
-      }.to have_enqueued_job(SearchIndexerJob).with('delete', 'Event', event.id)
+      allow(MessagePublisher).to receive(:publish)
+
+      event.update!(title: "Updated Title")
+
+      expect(MessagePublisher).to have_received(:publish).with(
+        "search_indexer",
+        ["index", "Event", event.id]
+      )
+    end
+
+    it "publishes a delete message when an event is destroyed" do
+      event = Event.create!(title: "Async Test", active: true)
+      RSpec::Mocks.space.proxy_for(MessagePublisher).reset
+
+      allow(MessagePublisher).to receive(:publish)
+
+      event.destroy!
+
+      expect(MessagePublisher).to have_received(:publish).with(
+        "search_indexer",
+        ["delete", "Event", event.id]
+      )
     end
   end
 

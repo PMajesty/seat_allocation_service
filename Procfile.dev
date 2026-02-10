@@ -1,2 +1,3 @@
 web: bin/rails server -p 3000
+worker: bundle exec sneakers work PaymentSimulationWorker,SearchIndexerWorker,CleanupExpiredHoldsWorker,CleanupProcessingSeatsWorker,CleanupSimulationWorker --require ./config/environment.rb
 css: bin/rails dartsass:watch

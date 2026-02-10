@@ -13,6 +13,7 @@ gem "bcrypt"
 gem "jwt"
 gem "redis"
 gem "connection_pool", "~> 2.4.1"
+gem "kicks"
 
 gem "sprockets-rails"
 gem "dartsass-rails"

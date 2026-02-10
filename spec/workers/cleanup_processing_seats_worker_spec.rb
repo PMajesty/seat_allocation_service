@@ -1,7 +1,8 @@
 require 'rails_helper'
 
-RSpec.describe CleanupProcessingSeatsJob, type: :job do
+RSpec.describe CleanupProcessingSeatsWorker do
   include ActiveSupport::Testing::TimeHelpers
+  include ActionCable::TestHelper
 
   let(:venue) { Venue.create!(name: "Test Venue", grid_rows: 5, grid_cols: 5) }
   let(:event) { Event.create!(title: "Test Event", base_price_cents: 1000) }
@@ -37,7 +38,7 @@ RSpec.describe CleanupProcessingSeatsJob, type: :job do
     sold_seat = create_seat(1, 3, :sold, 20.minutes.ago)
     available_seat = create_seat(1, 4, :available, 20.minutes.ago)
 
-    described_class.perform_now
+    described_class.new.perform
 
     stuck_seat.reload
     active_seat.reload
@@ -54,7 +55,7 @@ RSpec.describe CleanupProcessingSeatsJob, type: :job do
     create_seat(1, 1, :processing, 15.minutes.ago)
 
     expect {
-      described_class.perform_now
+      described_class.new.perform
     }.to have_broadcasted_to("showtime_#{showtime.id}")
      .with(event: "refresh")
   end
