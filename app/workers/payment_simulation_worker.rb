@@ -1,5 +1,5 @@
-class PaymentSimulationJob < ApplicationJob
-  queue_as :default
+class PaymentSimulationWorker < ApplicationWorker
+  from_queue "payment_simulation", env: nil, arguments: { "x-max-priority" => 10 }
 
   def perform(payment_reference, user_id, showtime_id)
     sleep(rand(3.0..6.0))
@@ -16,7 +16,7 @@ class PaymentSimulationJob < ApplicationJob
     service = CheckoutCallbackHandler.new(user, showtime_id)
     service.call(payment_reference, success, gateway_response)
   rescue => e
-    Rails.logger.error("PaymentSimulationJob failed for ref #{payment_reference}: #{e.message}")
+    Rails.logger.error("PaymentSimulationWorker failed for ref #{payment_reference}: #{e.message}")
     handle_crash(user_id, showtime_id, payment_reference)
   end
 

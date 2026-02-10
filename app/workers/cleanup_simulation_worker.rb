@@ -1,5 +1,6 @@
-class CleanupSimulationJob < ApplicationJob
-  queue_as :default
+class CleanupSimulationWorker < ApplicationWorker
+  from_queue "cleanup_simulation", env: nil
+
   include ShowtimeBroadcaster
 
   def perform

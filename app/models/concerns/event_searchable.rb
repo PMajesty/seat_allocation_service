@@ -43,11 +43,11 @@ module EventSearchable
   private
 
   def index_document_in_elasticsearch
-    SearchIndexerJob.perform_later("index", self.class.name, id)
+    MessagePublisher.publish("search_indexer", ["index", self.class.name, id])
   end
 
   def delete_document_from_elasticsearch
-    SearchIndexerJob.perform_later("delete", self.class.name, id)
+    MessagePublisher.publish("search_indexer", ["delete", self.class.name, id])
   end
 
   class_methods do

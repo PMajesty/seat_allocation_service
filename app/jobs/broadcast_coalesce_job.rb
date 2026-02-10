@@ -1,4 +1,5 @@
 class BroadcastCoalesceJob < ApplicationJob
+  self.queue_adapter = :async unless Rails.env.test?
   queue_as :default
 
   include ShowtimeBroadcaster

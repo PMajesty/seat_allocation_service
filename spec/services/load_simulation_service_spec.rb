@@ -1,6 +1,10 @@
 require 'rails_helper'
 
 RSpec.describe LoadSimulationService, redis: true do
+  before do
+    allow(MessagePublisher).to receive(:publish)
+  end
+
   describe ".set_mode" do
     it "sets the mode in redis" do
       described_class.set_mode("real")
@@ -14,8 +18,8 @@ RSpec.describe LoadSimulationService, redis: true do
       described_class.set_mode("high")
     end
 
-    it "enqueues cleanup job when mode is off" do
-      expect(CleanupSimulationJob).to receive(:perform_later)
+    it "publishes cleanup message when mode is off" do
+      expect(MessagePublisher).to receive(:publish).with("cleanup_simulation", [])
       described_class.set_mode("off")
     end
 

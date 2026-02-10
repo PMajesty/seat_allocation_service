@@ -2,6 +2,7 @@
 require "fileutils"
 require "net/http"
 require "uri"
+require "socket"
 
 APP_ROOT = File.expand_path("..", __dir__)
 
@@ -18,12 +19,23 @@ rescue Errno::ECONNREFUSED, Errno::ECONNRESET, EOFError, Net::ReadTimeout, Net::
   false
 end
 
+def rabbitmq_up?
+  socket = TCPSocket.new("localhost", 5672)
+  socket.close
+  true
+rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, SocketError
+  false
+end
+
 FileUtils.chdir APP_ROOT do
   puts "== Installing dependencies =="
   system("bundle check") || system!("bundle install")
 
   puts "\n== Checking Infrastructure =="
-  unless system("docker compose ps --services --filter 'status=running' | grep -q elasticsearch")
+  running_services = `docker compose ps --services --filter 'status=running'`.split("\n")
+  required_services = %w[elasticsearch rabbitmq]
+
+  unless required_services.all? { |s| running_services.include?(s) }
     puts "Starting Docker services..."
     system!("docker compose up -d")
   end
@@ -42,6 +54,20 @@ FileUtils.chdir APP_ROOT do
     retries += 1
   end
   puts "\nElasticsearch is ready."
+
+  puts "Waiting for RabbitMQ to be ready..."
+  retries = 0
+  until rabbitmq_up?
+    if retries >= max_retries
+      puts "\nERROR: RabbitMQ failed to start after #{max_retries} seconds."
+      puts "Check logs with: docker compose logs rabbitmq"
+      exit 1
+    end
+    print "."
+    sleep 1
+    retries += 1
+  end
+  puts "\nRabbitMQ is ready."
 
   puts "\n== Preparing database =="
   system! "bin/rails db:prepare"

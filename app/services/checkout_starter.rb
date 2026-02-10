@@ -50,12 +50,50 @@ class CheckoutStarter
       mark_idempotency_processing(idempotency_key)
     end
 
-    PaymentSimulationJob.perform_later(payment_reference, @user.id, @showtime_id)
+    published = MessagePublisher.publish("payment_simulation", [payment_reference, @user.id, @showtime_id])
+    unless published
+      cleanup_after_publish_failure(payment_reference, seat_ids, idempotency_key)
+      broadcast_showtime_refresh(@showtime_id)
 
+      return {
+        success: false,
+        message: "Checkout is temporarily unavailable. Please try again.",
+        code: "BACKGROUND_JOBS_UNAVAILABLE"
+      }
+    end
+
+    broadcast_showtime_refresh(@showtime_id)
     { success: true, status: :processing, payment_reference: payment_reference }
   end
 
   private
+
+  def cleanup_after_publish_failure(payment_reference, seat_ids, idempotency_key)
+    delete_payment_context(payment_reference)
+
+    if idempotency_key.present?
+      clear_idempotency_processing(idempotency_key)
+    end
+
+    revert_processing_seats(seat_ids)
+    HoldService.new(@user, @showtime_id).release!(seat_ids)
+  end
+
+  def revert_processing_seats(seat_ids)
+    ShowtimeSeat.transaction do
+      ShowtimeSeat.where(showtime_id: @showtime_id, seat_id: seat_ids, status: :processing, order_id: nil)
+        .lock
+        .update_all(status: ShowtimeSeat.statuses[:available], updated_at: Time.current)
+    end
+  end
+
+  def delete_payment_context(ref)
+    REDIS_POOL.with { |conn| conn.del("payment_ctx:#{ref}") }
+  end
+
+  def clear_idempotency_processing(key)
+    REDIS_POOL.with { |conn| conn.del("idempotency:#{key}") }
+  end
 
   def check_idempotency(key)
     existing_payment = Payment.includes(:order).find_by(idempotency_key: key, status: :successful)
@@ -73,6 +111,7 @@ class CheckoutStarter
         return { success: true, status: :processing, message: "Payment is already processing." }
       end
     end
+
     nil
   end
 
@@ -103,13 +142,12 @@ class CheckoutStarter
       end
     end
 
-    broadcast_showtime_refresh(@showtime_id)
     { success: true }
   rescue ActiveRecord::LockWaitTimeout
     { success: false, message: "Seats are currently being processed by another user.", code: "SEAT_LOCKED" }
   rescue CheckoutError => e
     { success: false, message: e.message, code: "SEAT_NO_LONGER_AVAILABLE" }
-  rescue => e
+  rescue
     { success: false, message: "An unexpected error occurred.", code: "INTERNAL_ERROR" }
   end
 

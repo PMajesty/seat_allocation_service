@@ -1,5 +1,5 @@
-class SearchIndexerJob < ApplicationJob
-  queue_as :default
+class SearchIndexerWorker < ApplicationWorker
+  from_queue "search_indexer", env: nil
 
   def perform(operation, record_class, record_id)
     klass = record_class.constantize
