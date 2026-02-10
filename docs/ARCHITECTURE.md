@@ -3,12 +3,17 @@
 
 # System Architecture
 
-I used a hybrid approach: Redis for speed and temporary state, PostgreSQL for reliability and permanent records.
+I used a hybrid approach: Redis for speed and temporary state, PostgreSQL for reliability and permanent records, and Elasticsearch for complex queries.
 
 ## Data Flow
 
 **Reading Availability**
 The frontend sees a merged view (`ShowtimeInventoryService`). I take the sold seats from Postgres and overlay the held seats from Redis. Postgres is the source of truth for sales, Redis is the source of truth for holds.
+
+**Searching Events**
+Search queries are offloaded to Elasticsearch to avoid expensive `LIKE` queries on the primary database.
+*   **Indexing**: When an Event is created or updated, `SearchIndexerJob` pushes the data to Elasticsearch asynchronously. This ensures the write path remains fast and is not blocked by search indexing latency.
+*   **Querying**: We use n-gram tokenizers to support fuzzy matching on event titles.
 
 **Buying a Seat**
 1.  **Hold**: User selects a seat. Redis runs a Lua script (`atomic_hold.lua`) to lock it. No database writes yet.
@@ -43,12 +48,17 @@ The app includes a built-in load testing engine (`LoadSimulationService`).
 
 # Архитектура
 
-Я использовал гибридный подход: Redis для скорости и временных данных, PostgreSQL для надежности и долгосрочного хранения.
+Я использовал гибридный подход: Redis для скорости и временных данных, PostgreSQL для надежности и долгосрочного хранения, и Elasticsearch для сложных запросов.
 
 ## Поток данных
 
 **Просмотр доступности**
 Фронтенд получает объединенную картину (`ShowtimeInventoryService`). Я беру проданные места из Postgres и накладываю на них забронированные места из Redis. Postgres - источник истины для продаж, Redis - для холдов.
+
+**Поиск событий**
+Поисковые запросы направляются в Elasticsearch, чтобы избежать тяжелых `LIKE` запросов к основной базе данных.
+*   **Индексация**: При создании или обновлении события `SearchIndexerJob` асинхронно обновляет индекс. Это гарантирует, что запись в БД остается быстрой и не блокируется задержками Elasticsearch.
+*   **Запросы**: Используется n-gram токенизация для поддержки нечеткого поиска по названиям.
 
 **Покупка**
 1.  **Холд**: Пользователь выбирает место. Redis блокирует его через Lua-скрипт (`atomic_hold.lua`). База данных в этот момент не трогается.

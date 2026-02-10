@@ -5,6 +5,9 @@
 
 Here is what happens when things break.
 
+## Elasticsearch Outage
+Search functionality is designed to degrade gracefully. If Elasticsearch becomes unreachable, the application catches the connection error. The user is shown a maintenance alert ("Search is currently under maintenance"), and the search results come back empty. The core application (event listing, booking, and payments) remains fully functional.
+
 ## Redis Outage
 Redis handles temporary holds. If it goes down, users can't select new seats, and checkout will fail when trying to refresh holds. Once Redis is back, the system recovers automatically. Sales data is safe in Postgres and won't be lost.
 
@@ -30,6 +33,9 @@ Popular events trigger massive waves of updates. To prevent crashing clients wit
 # Сбои и восстановление
 
 Как система ведет себя, когда что-то идет не так.
+
+## Падение Elasticsearch
+Функция поиска спроектирована так, чтобы не ломать весь сайт при сбое. Если Elasticsearch недоступен, приложение перехватывает ошибку соединения. Пользователь видит уведомление о технических работах, а результаты поиска возвращаются пустыми. Основной функционал (список событий, бронирование и оплата) продолжает работать штатно.
 
 ## Падение Redis
 Redis отвечает за временные брони. Если он упадет, пользователи не смогут выбирать места, а покупка не пройдет из-за ошибки обновления холда. После перезапуска Redis система восстановится сама. Данные о продажах лежат в Postgres, поэтому деньги и билеты не пропадут.

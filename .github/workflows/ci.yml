@@ -64,11 +64,25 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.17.0
+        ports:
+          - "9200:9200"
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: "false"
+          ES_JAVA_OPTS: "-Xms1024m -Xmx1024m"
+        options: >-
+          --health-cmd="curl --fail http://localhost:9200/_cluster/health || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     env:
       RAILS_ENV: test
       DATABASE_URL: "postgres://rails:password@localhost:5432/seat_allocation_service_test"
       REDIS_URL: "redis://localhost:6379/0"
-      # Added JWT secrets here so the Rails app can see them
+      ELASTICSEARCH_URL: "http://localhost:9200"
       JWT_SECRET_KEY_V1: ${{ secrets.JWT_SECRET_KEY_V1 }}
       JWT_SECRET_KEY_V2: ${{ secrets.JWT_SECRET_KEY_V2 }}
 
