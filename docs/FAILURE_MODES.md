@@ -9,15 +9,20 @@ Here is what happens when things break.
 Search functionality is designed to degrade gracefully. If Elasticsearch becomes unreachable, the application catches the connection error. The user is shown a maintenance alert ("Search is currently under maintenance"), and the search results come back empty. The core application (event listing, booking, and payments) remains fully functional.
 
 ## Redis Outage
-Redis handles temporary holds. If it goes down, users can't select new seats, and checkout will fail when trying to refresh holds. Once Redis is back, the system recovers automatically. Sales data is safe in Postgres and won't be lost.
+Redis handles temporary holds. If it goes down, users can't select new seats, and checkout initiation will fail when trying to refresh holds. Once Redis is back, the system recovers automatically. Sales data is safe in Postgres and won't be lost.
 
 ## Database Outage
 If the DB stops, writes stop completely. The API will return 500 errors. Thanks to ACID transactions, I ensure no partial data or corrupted states get committed.
 
 ## Payment Gateway Failure & Lockout
-The system simulates payment provider latency (5s) and random failures (10% chance).
-*   **Retry Logic**: If a payment fails, the user is notified.
+The system simulates payment provider latency (3-6s) and random failures (10% chance).
+*   **Async Feedback**: Since payments are backgrounded, failures are pushed to the client via ActionCable.
+*   **Retry Logic**: If a payment fails, the user is notified and the seats are released.
 *   **Lockout**: To prevent brute-forcing or API abuse, if a user experiences **2 consecutive payment failures**, they are temporarily locked out of purchasing for **1 minute**. This is enforced via Redis key `checkout_lockout:{user_id}`.
+
+## Worker Crash (Stuck Processing Seats)
+If a background worker crashes while a payment is processing, the seats could theoretically remain in the `processing` state indefinitely.
+*   **Recovery**: `CleanupProcessingSeatsJob` runs every 10 minutes. It finds seats that have been `processing` for longer than the timeout (10 mins) and releases them back to `available`.
 
 ## Abandoned Carts
 If a user selects seats and leaves, the seats stay held until the TTL expires. Redis keys live for 60 seconds. A background job `CleanupExpiredHoldsJob` runs every minute to clean up any leftover index entries that might have been missed during a crash.
@@ -38,15 +43,20 @@ Popular events trigger massive waves of updates. To prevent crashing clients wit
 Функция поиска спроектирована так, чтобы не ломать весь сайт при сбое. Если Elasticsearch недоступен, приложение перехватывает ошибку соединения. Пользователь видит уведомление о технических работах, а результаты поиска возвращаются пустыми. Основной функционал (список событий, бронирование и оплата) продолжает работать штатно.
 
 ## Падение Redis
-Redis отвечает за временные брони. Если он упадет, пользователи не смогут выбирать места, а покупка не пройдет из-за ошибки обновления холда. После перезапуска Redis система восстановится сама. Данные о продажах лежат в Postgres, поэтому деньги и билеты не пропадут.
+Redis отвечает за временные брони. Если он упадет, пользователи не смогут выбирать места, а покупка не начнется из-за ошибки обновления холда. После перезапуска Redis система восстановится сама. Данные о продажах лежат в Postgres, поэтому деньги и билеты не пропадут.
 
 ## Падение Базы Данных
 Без базы запись невозможна. API начнет отдавать 500-е ошибки. ACID-транзакции гарантируют, что частичные данные не запишутся - либо всё, либо ничего.
 
 ## Сбои платежного шлюза и блокировка
-Система симулирует задержку платежа (5 сек) и случайные сбои (шанс 10%).
-*   **Повторы**: Если платеж не прошел, пользователь получает уведомление.
+Система симулирует задержку платежа (3-6 сек) и случайные сбои (шанс 10%).
+*   **Асинхронная обратная связь**: Так как платежи идут в фоне, информация об ошибках приходит клиенту через ActionCable.
+*   **Повторы**: Если платеж не прошел, пользователь получает уведомление, а места освобождаются.
 *   **Блокировка**: Чтобы предотвратить перебор или злоупотребление API, если у пользователя случаются **2 ошибки оплаты подряд**, он временно блокируется на **1 минуту**. Это контролируется ключом Redis `checkout_lockout:{user_id}`.
+
+## Падение воркера (Зависшие места)
+Если фоновый процесс упадет во время обработки платежа, места могут теоретически "зависнуть" в статусе `processing`.
+*   **Восстановление**: `CleanupProcessingSeatsJob` запускается каждые 10 минут. Он находит места, которые висят в обработке дольше таймаута (10 мин), и возвращает их в статус `available`.
 
 ## Брошенные корзины
 Если пользователь набрал мест и ушел, они останутся занятыми до истечения TTL. Ключи в Redis живут 60 секунд. Дополнительно каждую минуту запускается `CleanupExpiredHoldsJob`, чтобы подчистить индексы, которые могли "зависнуть" при сбое.

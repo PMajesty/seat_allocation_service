@@ -23,7 +23,9 @@ To stop abuse, I limit how long a user can hold a seat (60s TTL) and how many se
 **Full-Text Search**
 Events are indexed in Elasticsearch using n-gram tokenizers, allowing for fuzzy matching and efficient searching even with partial queries.
 
-**Resilient Checkout**
+**Asynchronous & Resilient Checkout**
+*   **Async Processing**: Payments are processed in the background (`PaymentSimulationJob`) to keep the API responsive. The frontend receives real-time updates via ActionCable (`UserPaymentChannel`).
+*   **Intermediate State**: Seats transition to a persisted `processing` state in Postgres during payment, preventing double-booking even if Redis holds expire.
 *   **Idempotency**: The API supports `Idempotency-Key` headers to safely handle network retries without double-charging.
 *   **Simulated Latency**: The checkout process includes artificial latency and random failure injection to demonstrate how the system handles payment provider timeouts and errors.
 
@@ -83,7 +85,9 @@ I built a load generator right into the app. Log in as `admin@showtime.com` (pas
 **Полнотекстовый поиск**
 События индексируются в Elasticsearch с использованием n-gram токенизации, что обеспечивает быстрый нечеткий поиск даже по частичным запросам.
 
-**Надежный чекаут**
+**Асинхронный и надежный чекаут**
+*   **Асинхронная обработка**: Платежи обрабатываются в фоне (`PaymentSimulationJob`), чтобы API оставался отзывчивым. Фронтенд получает обновления в реальном времени через ActionCable (`UserPaymentChannel`).
+*   **Промежуточное состояние**: Во время оплаты места переводятся в статус `processing` в Postgres. Это предотвращает двойную продажу, даже если TTL в Redis истечет.
 *   **Идемпотентность**: API поддерживает заголовок `Idempotency-Key`, что позволяет безопасно повторять запросы при сбоях сети без риска двойного списания.
 *   **Симуляция задержек**: В процесс оплаты встроена искусственная задержка и генератор случайных ошибок, чтобы продемонстрировать устойчивость системы к проблемам платежных шлюзов.
 

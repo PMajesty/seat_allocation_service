@@ -2,160 +2,213 @@ class SimulationJob < ApplicationJob
   queue_as :default
   include ShowtimeBroadcaster
 
-  BATCH_SIZE = 20
+  BATCH_SIZE = 100
+  JOB_DURATION = 5.minutes
+
+  BURST_INTERVAL = 1.second
+  INVENTORY_REFRESH_INTERVAL = 5.seconds
 
   def perform
-    mode = LoadSimulationService.current_mode
-    return if mode == "off"
+    current_mode = LoadSimulationService.current_mode
+    return if current_mode == "off"
 
-    showtime_ids = Showtime.where(status: :scheduled).pluck(:id)
-    return if showtime_ids.empty?
+    all_scheduled_ids = Showtime.where(status: :scheduled).pluck(:id)
+    if all_scheduled_ids.empty?
+      sleep(5)
+      return
+    end
 
-    users = create_user_batch(mode)
+    seat_cache = build_seat_cache(all_scheduled_ids)
+    users = create_user_batch(current_mode)
+    my_holds = Hash.new { |h, k| h[k] = [] }
 
-    end_time = Time.now + 30.seconds
+    end_time = Time.now + JOB_DURATION
+    next_broadcast = Time.now + BURST_INTERVAL
+    next_inventory_check = Time.now
+
+    active_showtime_ids = []
+    inventory_stats = {}
 
     begin
       while Time.now < end_time
-        mode = LoadSimulationService.current_mode
-        break if mode == "off"
+        loop_start = Time.now
+        current_mode = LoadSimulationService.current_mode
+        break if current_mode == "off"
 
-        simulate_activity(mode, users, showtime_ids)
+        if active_showtime_ids.empty? || Time.now >= next_inventory_check
+          active_showtime_ids = filter_active_showtimes(all_scheduled_ids)
 
-        sleep_interval =
-          case mode
-          when "real" then rand(1.0..3.0)
-          when "high" then rand(0.1..0.5)
-          when "bot" then rand(0.2..0.5)
-          else 1
+          unless active_showtime_ids.empty?
+            refresh_inventory_stats(active_showtime_ids, inventory_stats)
+            update_seat_cache(active_showtime_ids, seat_cache)
           end
-        sleep(sleep_interval)
+
+          next_inventory_check = Time.now + INVENTORY_REFRESH_INTERVAL
+        end
+
+        if active_showtime_ids.empty?
+          sleep(2)
+          next
+        end
+
+        burst_size = calculate_burst_size(current_mode)
+
+        if burst_size > 0
+          users.sample(burst_size).each do |user|
+            perform_user_action(current_mode, user, active_showtime_ids, seat_cache, my_holds, inventory_stats)
+          end
+        end
+
+        if Time.now >= next_broadcast
+          active_showtime_ids.each { |sid| broadcast_showtime_refresh(sid) }
+          next_broadcast = Time.now + BURST_INTERVAL
+        end
+
+        elapsed = Time.now - loop_start
+        sleep_time = [BURST_INTERVAL - elapsed, 0.1].max
+        sleep(sleep_time)
       end
     ensure
       cleanup_users(users)
     end
 
-    SimulationJob.perform_later if mode != "off"
+    SimulationJob.perform_later if LoadSimulationService.current_mode != "off"
   end
 
   private
 
-  def create_user_batch(mode)
-    users = []
-    BATCH_SIZE.times do
-      suffix = SecureRandom.hex(4)
-      email = "sim_#{suffix}@simulation.local"
-
-      user = User.create(email: email, password: "password", role: :visitor)
-
-      is_trusted = mode != "bot" && rand < 0.5
-      user.update_column(:created_at, 20.hours.ago) if is_trusted
-
-      users << user
+  def calculate_burst_size(mode)
+    case mode
+    when "bot" then 50
+    when "high" then 15
+    when "real" then 5
+    else 0
     end
-    users
   end
 
-  def cleanup_users(users)
-    return unless users.present?
-    User.where(id: users.map(&:id)).delete_all
-  end
-
-  def simulate_activity(mode, users, showtime_ids)
-    user = users.sample
-    return unless user
-
+  def perform_user_action(mode, user, showtime_ids, seat_cache, my_holds, stats)
     showtime_id = showtime_ids.sample
     return unless showtime_id
 
-    service_response = ShowtimeInventoryService.new(showtime_id).call
-    inventory = JSON.parse(service_response[:public_grid_json], symbolize_names: true)
-
-    enforce_load_limits(mode, showtime_id, inventory, users)
-    return if over_limit?(mode, inventory)
+    if over_limit?(mode, stats[showtime_id])
+      release_random_seat(user, showtime_id, my_holds)
+      return
+    end
 
     if mode == "bot"
-      available_seats = inventory.select { |s| s[:status] == "available" }
-                          .sample(HoldService::MAX_PER_USER)
-                          .map { |s| s[:id] }
-
-      if available_seats.any?
-        HoldService.new(user, showtime_id).hold!(available_seats)
-        broadcast_showtime_refresh(showtime_id)
-      end
+      hold_random_seats(user, showtime_id, seat_cache, my_holds)
     else
-      action = rand < 0.7 ? :hold : :release
-
-      if action == :hold
-        available_seats = inventory.select { |s| s[:status] == "available" }
-                            .sample(rand(1..HoldService::MAX_PER_USER))
-                            .map { |s| s[:id] }
-
-        if available_seats.any?
-          HoldService.new(user, showtime_id).hold!(available_seats)
-          broadcast_showtime_refresh(showtime_id)
-        end
+      if rand < 0.7
+        hold_random_seats(user, showtime_id, seat_cache, my_holds)
       else
-        holds_map = fetch_holds_from_redis(showtime_id)
-        user_seat_ids = holds_map.select { |_, holder_id| holder_id == user.id }.keys
-
-        if user_seat_ids.any?
-          seats_to_release = user_seat_ids.sample(rand(1..HoldService::MAX_PER_USER))
-          HoldService.new(user, showtime_id).release!(seats_to_release)
-          broadcast_showtime_refresh(showtime_id)
-        end
+        release_random_seat(user, showtime_id, my_holds)
       end
     end
   end
 
-  def over_limit?(mode, inventory)
-    return false unless ["real", "high", "bot"].include?(mode)
+  def filter_active_showtimes(showtime_ids)
+    return [] if showtime_ids.empty?
+
+    counts = REDIS_POOL.with do |conn|
+      conn.pipelined do |pipeline|
+        showtime_ids.each { |id| pipeline.zcard("holds_z:#{id}") }
+      end
+    end
+
+    showtime_ids.zip(counts).select { |_, count| count > 0 }.map(&:first)
+  end
+
+  def create_user_batch(mode)
+    default_digest = "$2a$12$Gz.t.y.y.y.y.y.y.y.y.y.y.y.y.y.y.y.y.y.y.y.y.y.y.y"
+    now = Time.current
+    trusted_time = 20.hours.ago
+
+    user_attrs = BATCH_SIZE.times.map do
+      is_trusted = mode != "bot" && rand < 0.5
+      {
+        email: "sim_#{SecureRandom.hex(6)}@simulation.local",
+        password_digest: default_digest,
+        role: :visitor,
+        created_at: is_trusted ? trusted_time : now,
+        updated_at: now
+      }
+    end
+
+    result = User.insert_all(user_attrs, returning: %i[id email role])
+    User.where(id: result.pluck("id")).to_a
+  end
+
+  def cleanup_users(users)
+    return if users.empty?
+    User.where(id: users.map(&:id)).delete_all
+  end
+
+  def build_seat_cache(showtime_ids)
+    cache = {}
+    cache
+  end
+
+  def update_seat_cache(showtime_ids, cache)
+    showtime_ids.each do |sid|
+      next if cache.key?(sid)
+
+      response = ShowtimeInventoryService.new(sid).call
+      inventory = JSON.parse(response[:public_grid_json], symbolize_names: true)
+      cache[sid] = inventory.map { |s| s[:id] }
+    end
+  end
+
+  def refresh_inventory_stats(showtime_ids, stats)
+    showtime_ids.each do |sid|
+      response = ShowtimeInventoryService.new(sid).call
+      inventory = JSON.parse(response[:public_grid_json], symbolize_names: true)
+
+      total = inventory.size
+      sold = inventory.count { |s| s[:status] == "sold" }
+      held = inventory.count { |s| s[:status] != "available" && s[:status] != "sold" }
+
+      stats[sid] = { total: total, sold: sold, held: held, remaining: total - sold }
+    end
+  end
+
+  def over_limit?(mode, stat)
+    return false unless stat && ["real", "high", "bot"].include?(mode)
 
     limit_ratio = mode == "high" ? 0.8 : 0.5
+    return false if stat[:remaining].zero?
 
-    total_seats = inventory.size
-    sold_seats = inventory.count { |s| s[:status] == "sold" }
-    remaining_seats = total_seats - sold_seats
-
-    return false if remaining_seats.zero?
-
-    held_seats_count = inventory.count { |s| s[:status] != "available" && s[:status] != "sold" }
-    current_ratio = held_seats_count.to_f / remaining_seats
-
+    current_ratio = stat[:held].to_f / stat[:remaining]
     current_ratio > limit_ratio
   end
 
-  def enforce_load_limits(mode, showtime_id, inventory, users)
-    return unless ["real", "high", "bot"].include?(mode)
+  def hold_random_seats(user, showtime_id, seat_cache, my_holds)
+    count = mode_seat_count
+    return unless seat_cache[showtime_id]
 
-    if over_limit?(mode, inventory)
-      holds_map = fetch_holds_from_redis(showtime_id)
-      sim_user_ids = users.map(&:id)
+    potential_seats = seat_cache[showtime_id].sample(count)
+    return if potential_seats.empty?
 
-      sim_seat_ids = holds_map.select { |_, holder_id| sim_user_ids.include?(holder_id) }.keys
-
-      sim_seat_ids.sample(2).each do |seat_id|
-        holder_id = holds_map[seat_id]
-        user = users.find { |u| u.id == holder_id }
-        next unless user
-
-        HoldService.new(user, showtime_id).release!([seat_id])
-        broadcast_showtime_refresh(showtime_id)
-      end
+    begin
+      HoldService.new(user, showtime_id).hold!(potential_seats)
+      my_holds[user.id].concat(potential_seats)
+    rescue StandardError
     end
   end
 
-  def fetch_holds_from_redis(showtime_id)
-    REDIS_POOL.with do |conn|
-      seat_ids = conn.zrange("holds_z:#{showtime_id}", 0, -1)
-      return {} if seat_ids.empty?
+  def release_random_seat(user, showtime_id, my_holds)
+    held_seats = my_holds[user.id]
+    return if held_seats.empty?
 
-      keys = seat_ids.map { |sid| "seat_hold:#{showtime_id}:#{sid}" }
-      values = conn.mget(keys)
+    seats_to_release = held_seats.sample(rand(1..mode_seat_count))
 
-      seat_ids.zip(values).each_with_object({}) do |(seat_id, holder_id), map|
-        map[seat_id.to_i] = holder_id.to_i if holder_id
-      end
+    begin
+      HoldService.new(user, showtime_id).release!(seats_to_release)
+      my_holds[user.id] -= seats_to_release
+    rescue StandardError
     end
+  end
+
+  def mode_seat_count
+    rand(1..HoldService::MAX_PER_USER)
   end
 end

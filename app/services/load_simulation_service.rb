@@ -2,6 +2,8 @@ class LoadSimulationService
   SIMULATION_KEY = "load_simulation_mode"
   MODES = %w[off real high bot].freeze
 
+  WORKER_COUNT = 5
+
   def self.set_mode(mode)
     return unless MODES.include?(mode)
 
@@ -12,7 +14,7 @@ class LoadSimulationService
     cleanup_simulation
 
     if mode != "off"
-      start_simulation(mode)
+      start_simulation
     end
   end
 
@@ -22,10 +24,8 @@ class LoadSimulationService
     end
   end
 
-  def self.start_simulation(mode)
-    worker_count = 20
-
-    worker_count.times do
+  def self.start_simulation
+    WORKER_COUNT.times do
       SimulationJob.perform_later
     end
   end

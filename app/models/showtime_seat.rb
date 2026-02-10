@@ -4,5 +4,5 @@ class ShowtimeSeat < ApplicationRecord
   belongs_to :order, optional: true
   has_one :ticket
 
-  enum :status, { available: 0, sold: 1 }
+  enum :status, { available: 0, sold: 1, processing: 2 }
 end

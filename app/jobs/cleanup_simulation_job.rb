@@ -10,23 +10,24 @@ class CleanupSimulationJob < ApplicationJob
       holder_ids = holds_map.values.uniq
 
       real_user_ids = User.where(id: holder_ids)
-                          .reject { |u| u.email.end_with?("@simulation.local") }
-                          .map(&:id)
+                          .where.not("email LIKE ?", "%@simulation.local")
+                          .pluck(:id)
 
       seats_to_release = holds_map.select do |_, user_id|
         !real_user_ids.include?(user_id)
       end
 
       if seats_to_release.any?
-        seats_to_release.each do |seat_id, user_id|
+        seats_to_release.group_by { |_, user_id| user_id }.each do |user_id, seat_pairs|
+          seat_ids = seat_pairs.map(&:first)
           user = Struct.new(:id).new(user_id)
-          HoldService.new(user, showtime.id).release!([seat_id])
+          HoldService.new(user, showtime.id).release!(seat_ids)
         end
         broadcast_showtime_refresh(showtime.id)
       end
     end
 
-    User.where("email LIKE ?", "%@simulation.local").destroy_all
+    User.where("email LIKE ?", "%@simulation.local").delete_all
   end
 
   private

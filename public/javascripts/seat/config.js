@@ -1,0 +1,6 @@
+export default {
+  MAX_HOLDS: 3,
+  MAX_SELECTION: 6,
+  COOLDOWN_MS: 60000,
+  REFRESH_JITTER_MS: 200
+};

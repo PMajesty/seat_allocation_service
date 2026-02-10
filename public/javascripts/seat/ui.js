@@ -1,4 +1,4 @@
-export const SeatUi = {
+export default {
   elements: {},
 
   initialize() {
@@ -13,12 +13,9 @@ export const SeatUi = {
     };
   },
 
-  renderGrid(seats, heldSeatIds, pendingSeatIds, currentUserId, onSeatClick) {
+  renderGrid(seats, state) {
     const { grid } = this.elements;
-
-    if (grid.innerText.includes('Loading')) {
-      grid.innerHTML = '';
-    }
+    if (grid.innerText.includes('Loading')) grid.innerHTML = '';
 
     seats.forEach(seat => {
       let seatButton = document.getElementById(`seat-${seat.id}`);
@@ -29,16 +26,16 @@ export const SeatUi = {
         seatButton.style.gridRow = seat.row;
         seatButton.style.gridColumn = seat.col;
         seatButton.textContent = `${seat.row}-${seat.col}`;
-        seatButton.onclick = () => onSeatClick(seat.id);
+        seatButton.dataset.id = seat.id;
         grid.appendChild(seatButton);
       }
 
       seatButton.className = 'seat-btn';
       seatButton.disabled = false;
 
-      const isSoldToMe = seat.status === 'sold' && seat.user_id === currentUserId;
-      const isMyHold = heldSeatIds.has(seat.id);
-      const isPending = pendingSeatIds.has(seat.id);
+      const isSoldToMe = seat.status === 'sold' && seat.user_id === state.currentUserId;
+      const isMyHold = state.heldSeats.has(seat.id);
+      const isPending = state.pendingSeats.has(seat.id);
 
       if (isSoldToMe) {
         seatButton.classList.add('status-owned');
@@ -49,40 +46,44 @@ export const SeatUi = {
         seatButton.classList.add('status-pending');
       } else {
         seatButton.classList.add(`status-${seat.status}`);
-        if (seat.status === 'sold') {
+        if (seat.status === 'sold' || seat.status === 'processing') {
           seatButton.disabled = true;
         }
+      }
+
+      if (!seatButton.onclick) {
+        seatButton.onclick = () => {
+          const event = new CustomEvent('seat:click', { detail: { seatId: seat.id } });
+          document.dispatchEvent(event);
+        };
       }
     });
   },
 
-  updateSelectionSummary(heldSeatIds, pendingSeatIds, seatInventoryMap, isProcessing) {
+  updateSelectionSummary(state) {
     const { list, totalPrice, checkoutButton } = this.elements;
 
     list.innerHTML = '';
     let totalCents = 0;
-    const allSelectedIds = [...heldSeatIds, ...pendingSeatIds];
+    const allSelectedIds = state.allSelectedIds.sort((a, b) => a - b);
 
     if (allSelectedIds.length === 0) {
       list.innerHTML = '<p class="empty-selection">No seats selected</p>';
       checkoutButton.disabled = true;
     } else {
-      checkoutButton.disabled = isProcessing;
-      allSelectedIds.sort((a, b) => a - b);
+      checkoutButton.disabled = state.isProcessing;
 
       allSelectedIds.forEach(id => {
-        const seat = seatInventoryMap.get(id);
+        const seat = state.getSeat(id);
         if (seat) {
           totalCents += seat.price;
-          const isPending = pendingSeatIds.has(id);
+          const isPending = state.pendingSeats.has(id);
 
           const rowElement = document.createElement('div');
           rowElement.className = `summary-row ${isPending ? 'pending-row' : ''}`;
 
-          const statusText = isPending ? '(Not Held)' : '';
-
           const infoSpan = document.createElement('span');
-          infoSpan.textContent = `Row ${seat.row}, Seat ${seat.col} ${statusText}`;
+          infoSpan.textContent = `Row ${seat.row}, Seat ${seat.col} ${isPending ? '(Not Held)' : ''}`;
 
           const priceSpan = document.createElement('span');
           priceSpan.textContent = `$${(seat.price / 100).toFixed(2)}`;
@@ -95,13 +96,13 @@ export const SeatUi = {
     }
 
     totalPrice.textContent = `$${(totalCents / 100).toFixed(2)}`;
-    checkoutButton.textContent = isProcessing ? "Processing..." : "Buy";
+    checkoutButton.textContent = state.isProcessing ? "Processing..." : "Buy";
   },
 
   showNotification(message, type = 'error') {
     const container = this.elements.notificationsContainer;
+    if (!container) return;
 
-    // Limit to 2 flashes, remove oldest if needed
     while (container.children.length >= 2) {
       container.removeChild(container.firstChild);
     }
@@ -112,20 +113,18 @@ export const SeatUi = {
 
     container.appendChild(toast);
 
-    setTimeout(() => {
-      toast.classList.add('hiding');
-      setTimeout(() => toast.remove(), 300);
-    }, 4000);
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        toast.classList.add('hiding');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    });
   },
 
   checkScrollOverflow() {
     const { scrollArea, scrollWrapper } = this.elements;
     if (scrollArea && scrollWrapper) {
-      if (scrollArea.scrollWidth > scrollArea.clientWidth) {
-        scrollWrapper.classList.add('can-scroll');
-      } else {
-        scrollWrapper.classList.remove('can-scroll');
-      }
+      scrollWrapper.classList.toggle('can-scroll', scrollArea.scrollWidth > scrollArea.clientWidth);
     }
   }
 };
