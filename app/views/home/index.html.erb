@@ -4,7 +4,16 @@
 </div>
 
 <div class="events-section">
-  <h2 class="section-title">Upcoming Events</h2>
+  <div class="events-controls">
+    <h2 class="section-title">Upcoming Events</h2>
+
+    <%= form_with url: root_path, method: :get, local: true, class: "search-form" do |f| %>
+      <div class="search-wrapper">
+        <%= f.text_field :q, value: params[:q], placeholder: "Search events...", class: "search-input" %>
+        <%= f.button "Search", class: "search-button" %>
+      </div>
+    <% end %>
+  </div>
 
   <% if @events.any? %>
     <div class="events-grid">
@@ -38,7 +47,19 @@
         </div>
       <% end %>
     </div>
+
+    <div class="pagination-wrapper">
+      <%= paginate @events %>
+    </div>
   <% else %>
-    <p class="events-empty-state">No events scheduled at this time.</p>
+    <p class="events-empty-state">
+      <% if params[:q].present? && !flash[:alert] %>
+        No events found matching "<%= params[:q] %>". <%= link_to "Clear search", root_path %>
+      <% elsif params[:q].present? && flash[:alert] %>
+        <%= link_to "Clear search", root_path %>
+      <% else %>
+        No events scheduled at this time.
+      <% end %>
+    </p>
   <% end %>
 </div>

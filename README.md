@@ -3,7 +3,7 @@
 
 # Seat Allocation Service
 
-I built this high-contention seat allocation system using Rails 8, Redis, and PostgreSQL.
+I built this high-contention seat allocation system using Rails 8, Redis, PostgreSQL, and Elasticsearch.
 
 The goal was to handle heavy traffic and prevent overselling using a "Redis holds - Database sale" pattern. Redis manages temporary inventory locks with atomic Lua scripts, while Postgres handles the final transaction using row-level locking (`FOR UPDATE NOWAIT`).
 
@@ -20,6 +20,9 @@ To stop abuse, I limit how long a user can hold a seat (60s TTL) and how many se
 *   **VIP Rope**: New accounts (< 10 hours old) are automatically restricted from holding the last 20% of inventory. This protects loyal users during bot attacks.
 *   **Throttling**: `Rack::Attack` limits request rates for sensitive endpoints.
 
+**Full-Text Search**
+Events are indexed in Elasticsearch using n-gram tokenizers, allowing for fuzzy matching and efficient searching even with partial queries.
+
 **Resilient Checkout**
 *   **Idempotency**: The API supports `Idempotency-Key` headers to safely handle network retries without double-charging.
 *   **Simulated Latency**: The checkout process includes artificial latency and random failure injection to demonstrate how the system handles payment provider timeouts and errors.
@@ -35,10 +38,10 @@ Get the app running in minutes using Docker for dependencies.
 # 1. Configure environment
 cp .env.example .env
 
-# 2. Start database and redis
+# 2. Start database, redis, and elasticsearch
 docker compose up -d
 
-# 3. Setup database and seed data
+# 3. Setup database and seed data (waits for ES to be ready)
 bin/setup --skip-server
 
 # 4. Configure scheduled jobs
@@ -60,7 +63,7 @@ I built a load generator right into the app. Log in as `admin@showtime.com` (pas
 
 # Seat Allocation Service
 
-Я построил эту систему бронирования мест с высокой конкуренцией на Rails 8, Redis и PostgreSQL.
+Я построил эту систему бронирования мест с высокой конкуренцией на Rails 8, Redis, PostgreSQL и Elasticsearch.
 
 Главная задача - держать высокую нагрузку и предотвращать овербукинг. Я использовал схему "Redis holds - Database sale". Redis берет на себя быстрые временные блокировки через атомарные Lua-скрипты, а Postgres гарантирует надежность финальной транзакции через блокировку строк (`FOR UPDATE NOWAIT`).
 
@@ -77,6 +80,9 @@ I built a load generator right into the app. Log in as `admin@showtime.com` (pas
 *   **VIP Rope**: Новые аккаунты (созданные менее 10 часов назад) не могут забронировать последние 20% мест. Это защищает реальных пользователей во время атак ботов.
 *   **Троттлинг**: `Rack::Attack` ограничивает частоту запросов к API.
 
+**Полнотекстовый поиск**
+События индексируются в Elasticsearch с использованием n-gram токенизации, что обеспечивает быстрый нечеткий поиск даже по частичным запросам.
+
 **Надежный чекаут**
 *   **Идемпотентность**: API поддерживает заголовок `Idempotency-Key`, что позволяет безопасно повторять запросы при сбоях сети без риска двойного списания.
 *   **Симуляция задержек**: В процесс оплаты встроена искусственная задержка и генератор случайных ошибок, чтобы продемонстрировать устойчивость системы к проблемам платежных шлюзов.
@@ -92,10 +98,10 @@ I built a load generator right into the app. Log in as `admin@showtime.com` (pas
 # 1. Настройка окружения
 cp .env.example .env
 
-# 2. Запуск базы данных и redis
+# 2. Запуск базы данных, redis и elasticsearch
 docker compose up -d
 
-# 3. Настройка базы и сидов
+# 3. Настройка базы и сидов (скрипт дождется готовности ES)
 bin/setup --skip-server
 
 # 4. Настройка планировщика (Cron)

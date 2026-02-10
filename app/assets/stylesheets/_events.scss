@@ -50,11 +50,23 @@
   }
 }
 
-// Events Index Section
 .events-section {
   margin-top: 60px;
   border-top: 1px solid $color-gray-light;
   padding-top: 40px;
+
+  .events-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    gap: 20px;
+
+    .section-title {
+      margin-bottom: 0;
+    }
+  }
 
   .section-title {
     text-transform: uppercase;
@@ -63,6 +75,43 @@
     font-weight: 700;
     margin-bottom: 30px;
     color: $color-text;
+  }
+
+  .search-wrapper {
+    display: flex;
+    gap: 8px;
+  }
+
+  .search-input {
+    padding: 10px 15px;
+    border: 1px solid $color-gray-medium;
+    border-radius: 4px;
+    font-size: 14px;
+    min-width: 250px;
+    transition: border-color 0.2s;
+
+    &:focus {
+      outline: none;
+      border-color: $color-primary;
+    }
+  }
+
+  .search-button {
+    background-color: $color-text;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 20px;
+    text-transform: uppercase;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+
+    &:hover {
+      background-color: $color-primary;
+    }
   }
 
   .events-empty-state {
@@ -171,10 +220,34 @@
       }
     }
   }
+
+  .pagination-wrapper {
+    margin-top: 40px;
+    display: flex;
+    justify-content: center;
+  }
 }
 
 @media (max-width: $breakpoint-mobile) {
   .events-section {
+    .events-controls {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 15px;
+
+      .section-title {
+        text-align: center;
+        margin-bottom: 0;
+      }
+    }
+
+    .search-wrapper {
+      .search-input {
+        flex: 1;
+        min-width: 0;
+      }
+    }
+
     .events-grid {
       grid-template-columns: 1fr;
       gap: 30px;
