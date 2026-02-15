@@ -7,7 +7,7 @@ I built this high-contention seat allocation system using Rails 8, Redis, Postgr
 
 The goal was to handle heavy traffic and prevent overselling using a "Redis holds - Database sale" pattern. Redis manages temporary inventory locks with atomic Lua scripts, while Postgres handles the final transaction using row-level locking (`FOR UPDATE NOWAIT`).
 
-For background jobs I intentionally did **not** use Sidekiq. I wanted to keep Redis focused on cache/ephemeral coordination (holds, limits, mutexes) instead of also being the job transport, and low key I also wanted an excuse to learn RabbitMQ—so I wired jobs through **RabbitMQ + Sneakers**.
+For background jobs I intentionally did **not** use Sidekiq. I wanted to keep Redis focused on cache/ephemeral coordination (holds, limits, mutexes) instead of also being the job transport, and low key I also wanted an excuse to learn RabbitMQ-so I wired jobs through **RabbitMQ + Sneakers**.
 
 ## Documentation
 Check out how I designed the [Architecture & Data Flow](docs/ARCHITECTURE.md), guaranteed [System Invariants](docs/INVARIANTS.md), and managed [Failure Modes](docs/FAILURE_MODES.md).
@@ -77,9 +77,9 @@ I built a load generator right into the app. Log in as `admin@showtime.com` (pas
 
 Я построил эту систему бронирования мест с высокой конкуренцией на Rails 8, Redis, PostgreSQL, Elasticsearch и RabbitMQ.
 
-Главная задача — держать высокую нагрузку и предотвращать овербукинг. Я использовал схему "Redis holds - Database sale". Redis берет на себя быстрые временные блокировки через атомарные Lua-скрипты, а Postgres гарантирует надежность финальной транзакции через блокировку строк (`FOR UPDATE NOWAIT`).
+Главная задача - держать высокую нагрузку и предотвращать овербукинг. Я использовал схему "Redis holds - Database sale". Redis берет на себя быстрые временные блокировки через атомарные Lua-скрипты, а Postgres гарантирует надежность финальной транзакции через блокировку строк (`FOR UPDATE NOWAIT`).
 
-Для фоновых задач я сознательно **не** использовал Sidekiq. Хотел отделить Redis (холды/лимиты/мьютексы/эфемерные данные) от транспорта задач, и, если честно, я “low key” хотел разобраться с RabbitMQ — поэтому фоновые задачи сделаны через **RabbitMQ + Sneakers**.
+Для фоновых задач я сознательно **не** использовал Sidekiq. Хотел отделить Redis (холды/лимиты/мьютексы/эфемерные данные) от транспорта задач, и, если честно, я “low key” хотел разобраться с RabbitMQ - поэтому фоновые задачи сделаны через **RabbitMQ + Sneakers**.
 
 ## Документация
 Подробнее про [Архитектуру](docs/ARCHITECTURE.md), [Инварианты системы](docs/INVARIANTS.md) и [Сценарии сбоев](docs/FAILURE_MODES.md).
@@ -87,7 +87,7 @@ I built a load generator right into the app. Log in as `admin@showtime.com` (pas
 ## Ключевые особенности
 
 **Конкурентность и целостность**
-Для выбора мест я использую оптимистичную блокировку в Redis, а для оплаты — пессимистичную в Postgres. Lua-скрипты гарантируют, что проверка и установка холда происходят атомарно, исключая гонки.
+Для выбора мест я использую оптимистичную блокировку в Redis, а для оплаты - пессимистичную в Postgres. Lua-скрипты гарантируют, что проверка и установка холда происходят атомарно, исключая гонки.
 
 **Контроль трафика и VIP-зона**
 Чтобы избежать злоупотреблений, я ограничиваю время холда (60 сек) и количество мест в одних руках (макс. 3).
